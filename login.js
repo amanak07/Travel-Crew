@@ -1,46 +1,32 @@
 const express = require('express');
 const path = require('path');
 const app = express();
-const mongoose = require('mongoose');
+const { MongoClient } = require('mongodb');
 require('dotenv').config();
 
-const mongoURI=process.env.MONGO_URI;
+const mongoURI = process.env.MONGO_URI;
+const dbName = 'project';
 
 // Connect to MongoDB
-mongoose.connect(mongoURI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
+const client = new MongoClient(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true });
 
+async function connectToDB() {
+    try {
+        await client.connect();
+        console.log('Connected to MongoDB');
+    } catch (error) {
+        console.error('Error connecting to MongoDB:', error);
+    }
+}
 
-const db = mongoose.connection;
+connectToDB();
 
-// Check MongoDB connection
-db.on('error', console.error.bind(console, 'MongoDB connection error:'));
-db.once('open', () => console.log('Connected to MongoDB'));
+const db = client.db(dbName);
 
-// Define schema for user sign up
-const userSchema = new mongoose.Schema({
-  username: String,
-  email: String,
-  password: String
-});
-
-// Define schema for travel requests
-const travelRequestSchema = new mongoose.Schema({
-  username: String,
-  mobile_number: String,
-  email: String,
-  starting_date: Date,
-  ending_date: Date,
-  pickup_destination: String,
-  number_of_travellers: Number,
-  trip_details: String,
-});
-
-// Create models based on the schemas
-const User = mongoose.model('logsign', userSchema); // Assuming 'logsign' is your user table
-const TravelRequest = mongoose.model('travel_requests', travelRequestSchema); // Assuming 'travel_requests' is your travel requests table
+// Define collection for user sign up
+const usersCollection = db.collection('logsigns');
+// Define collection for travel requests
+const travelRequestsCollection = db.collection('travel_requests');
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
@@ -52,8 +38,7 @@ app.use(express.static(path.join(__dirname, 'Travel Crew')));
 app.post('/signup', async (req, res) => {
     const { username, email, password } = req.body;
     try {
-        const user = new User({ username, email, password });
-        await user.save();
+        await usersCollection.insertOne({ username, email, password });
         res.redirect('/'); // Redirect to home page
     } catch (error) {
         console.error('Error creating user', error);
@@ -65,7 +50,7 @@ app.post('/signup', async (req, res) => {
 app.post('/login', async (req, res) => {
     const { email, password } = req.body;
     try {
-        const user = await User.findOne({ email, password });
+        const user = await usersCollection.findOne({ email, password });
         if (!user) {
             res.status(401).json({ error: 'Invalid credentials' });
         } else {
@@ -81,17 +66,16 @@ app.post('/login', async (req, res) => {
 app.post('/custom', async (req, res) => {
     const { username, number, email, s_date, e_date, pickup, no_traveller, trip_details } = req.body;
     try {
-        const travelRequest = new TravelRequest({
+        await travelRequestsCollection.insertOne({
             username,
             mobile_number: number,
             email,
             starting_date: new Date(s_date),
             ending_date: new Date(e_date),
             pickup_destination: pickup,
-            number_of_travellers: no_traveller,
+            number_of_travellers: parseInt(no_traveller),
             trip_details,
         });
-        await travelRequest.save();
         res.redirect('/'); // Redirect to home page
     } catch (error) {
         console.error('Error creating travel request', error);
