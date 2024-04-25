@@ -2,12 +2,16 @@ const express = require('express');
 const path = require('path');
 const app = express();
 const mongoose = require('mongoose');
+require('dotenv').config();
+
+const mongoURI=process.env.MONGO_URI;
 
 // Connect to MongoDB
-mongoose.connect('mongodb+srv://aman:roor@cluster0.gmyhglx.mongodb.net/project', {
+mongoose.connect(mongoURI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
+
 
 const db = mongoose.connection;
 
